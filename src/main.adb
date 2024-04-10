@@ -7,12 +7,17 @@ procedure Main is
 
    arr : array(1..dim) of integer;
 
+
+      min_val : Integer;
+   min_idx : Integer;
+
+
    procedure Init_Arr is
    begin
       for i in 1..dim loop
          arr(i) := i;
       end loop;
-      arr(42345) := -1;
+      arr(32540) := -1;
    end Init_Arr;
 
 
@@ -20,14 +25,15 @@ procedure Main is
 
    function part_min(start_index, finish_index : in integer) return integer is
       min_val : integer := Integer'Last;
+      min_index : integer;
    begin
       for i in start_index..finish_index loop
          if arr(i) < min_val then
             min_val := arr(i);
+            min_index := i;
          end if;
       end loop;
-      --  Put_Line(min_val'img);
-      return min_val;
+      return min_index;
    end part_min;
 
 
@@ -35,25 +41,28 @@ procedure Main is
 
 
    protected part_manager is
-      procedure set_part_min(min : in Integer);
-      entry get_min(min : out Integer);
+      procedure set_part_min(min : in Integer; index : in Integer);
+      entry get_min(min : out Integer; index : out Integer);
    private
       tasks_count : Integer := 0;
       min1 : Integer := Integer'Last;
+      min_index : Integer := -1;
    end part_manager;
 
    protected body part_manager is
-      procedure set_part_min(min : in Integer) is
+      procedure set_part_min(min : in Integer; index : in Integer) is
       begin
          if min < min1 then
             min1 := min;
+            min_index := index;
          end if;
          tasks_count := tasks_count + 1;
       end set_part_min;
 
-      entry get_min(min : out Integer) when tasks_count = thread_num is
+      entry get_min(min : out Integer; index : out Integer) when tasks_count = thread_num is
       begin
          min := min1;
+         index := min_index;
       end get_min;
 
    end part_manager;
@@ -68,22 +77,25 @@ procedure Main is
 
    task body starter_thread is
       min_val : Integer := Integer'Last;
+      min_index : Integer;
       start_index, finish_index : Integer;
    begin
       accept start(start_index, finish_index : in Integer) do
          starter_thread.start_index := start_index;
          starter_thread.finish_index := finish_index;
       end start;
-      min_val := part_min(start_index  => start_index,
-                          finish_index => finish_index);
-      part_manager.set_part_min(min_val);
+      min_index := part_min(start_index  => start_index,
+                            finish_index => finish_index);
+      min_val := arr(min_index);
+      part_manager.set_part_min(min_val, min_index);
    end starter_thread;
 
 
      -- ======================================================== --
 
-   function parallel_min return Integer is
+   procedure parallel_min(min_value : out Integer; min_index : out Integer) is
       min : Integer := Integer'Last;
+      index : Integer;
       thread : array(1..thread_num) of starter_thread;
       step : Integer := dim / thread_num;
       start_index, finish_index : Integer := 1;
@@ -98,8 +110,9 @@ procedure Main is
          start_index := finish_index + 1;
       end loop;
 
-      part_manager.get_min(min);
-   return min;
+      part_manager.get_min(min, index);
+      min_value := min;
+      min_index := index;
    end parallel_min;
 
 
@@ -108,6 +121,10 @@ procedure Main is
 
 begin
    Init_Arr;
-   --  Put_Line(part_min(1, dim)'img);
-   Put_Line("Min value: " & parallel_min'img);
+
+   begin
+      parallel_min(min_val, min_idx);
+      Put_Line("Index of Min value: " & min_idx'Img);
+      Put_Line("Min value: " & min_val'Img);
+   end;
 end Main;
